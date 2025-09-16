@@ -1,0 +1,6 @@
+python-telegram-bot==20.6
+fastapi==0.111.0
+uvicorn==0.29.0
+yt-dlp
+python-dotenv
+requests
