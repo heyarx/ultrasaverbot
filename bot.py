@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -17,8 +18,12 @@ from telegram.ext import (
 )
 
 # Load environment variables
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # ✅ your Telegram Bot Token
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ultrasaverbot.onrender.com/webhook")
+
+if not BOT_TOKEN or BOT_TOKEN.strip() == "":
+    print("❌ ERROR: BOT_TOKEN is missing or empty! Please set BOT_TOKEN environment variable with your @BotFather token.")
+    sys.exit(1)
 
 app = FastAPI()
 
@@ -33,13 +38,11 @@ LANGUAGES = [
     "Thai", "Bengali", "Urdu", "Persian", "Malay", "Tamil"
 ]
 
-# Start command handler
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_first_name = update.effective_user.first_name
-    # Typing action
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     await asyncio.sleep(1)
-    # Send greeting and ask language
     keyboard = [
         [InlineKeyboardButton(lang, callback_data=f"lang_{lang}")]
         for lang in LANGUAGES
@@ -50,15 +53,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# Language selection callback
+# language selected
 async def language_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     selected_lang = query.data.replace("lang_", "")
-    # Typing animation
     await context.bot.send_chat_action(chat_id=query.message.chat_id, action="typing")
     await asyncio.sleep(1)
-    # Ask for format selection
     keyboard = [
         [
             InlineKeyboardButton("🎵 MP3 (Audio)", callback_data="format_mp3"),
@@ -72,12 +73,12 @@ async def language_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# Format selection callback
+# format selected
 async def format_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     format_type = query.data.replace("format_", "")
-    context.user_data["format"] = format_type  # store user format
+    context.user_data["format"] = format_type
     await context.bot.send_chat_action(chat_id=query.message.chat_id, action="typing")
     await asyncio.sleep(1)
     await query.edit_message_text(
@@ -85,20 +86,18 @@ async def format_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# Message handler to receive URLs
+# handle incoming URL
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_format = context.user_data.get("format", "mp3")
     url = update.message.text.strip()
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     await asyncio.sleep(1)
-
-    # Placeholder for download logic:
     await update.message.reply_text(
         f"🔗 Got your link: {url}\n\n⚙️ Preparing {user_format.upper()} download..."
     )
-    # Here you can plug in your yt-dlp / requests download logic and send file back.
+    # Here you would add your download logic (yt-dlp etc.)
 
-# Register handlers
+# register handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(language_selected, pattern="^lang_"))
 application.add_handler(CallbackQueryHandler(format_selected, pattern="^format_"))
@@ -121,7 +120,7 @@ async def startup():
     await application.bot.set_webhook(WEBHOOK_URL)
     print(f"✅ Webhook set to {WEBHOOK_URL}")
 
-# Run locally (for testing only)
+# Run locally for testing
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("bot:app", host="0.0.0.0", port=8000, reload=True)
